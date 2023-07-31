@@ -1,0 +1,9 @@
+ipam_config:
+   subnet: 192.168.1.0/24
+   gateway: 192.168.1.1
+   iprange: 192.168.1.32/28
+   hostcntr: 192.168.1.32
+
+network_name: my-macvlan-net
+parentIF: eth0
+bridge: host-cntr

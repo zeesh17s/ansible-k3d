@@ -1,0 +1,7 @@
+---
+
+- name: Reload dhcpcd
+  ansible.builtin.systemd:
+    name: dhcpcd
+    state: restarted
+  ignore_errors: true 

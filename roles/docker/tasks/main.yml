@@ -1,0 +1,66 @@
+---
+
+- name: Install dependencies
+  package:
+    name: ca-certificates, curl, gnupg
+    update_cache: yes
+    state: present
+
+- name: set mydistribution
+  ansible.builtin.set_fact:
+    mydistribution: "{{ 'centos' if (ansible_distribution == 'AlmaLinux') else (ansible_distribution | lower) }}"
+ 
+- name: show ansible_distribution
+  ansible.builtin.debug:
+      msg: "info: current distribution is {{mydistribution}}"
+
+# Ubuntu Debian repository
+- name: Add Docker GPG apt Key
+  apt_key:
+    url: https://download.docker.com/linux/{{mydistribution}}/gpg
+    state: present
+  when: ansible_distribution in ['Debian','Ubuntu']
+
+- name: Add Docker Repository
+  apt_repository:
+    repo: deb https://download.docker.com/linux/{{ mydistribution }} {{ansible_distribution_release}} stable
+    state: present
+  when: ansible_distribution in ['Debian','Ubuntu']
+
+# AlmaLinux repository
+- name: Add signing key
+  ansible.builtin.rpm_key:
+    key: "https://download.docker.com/linux/{{ mydistribution }}/gpg"
+    state: present
+  when:  ansible_facts['os_family'] == 'RedHat'
+
+- name: Add repository into repo.d list
+  ansible.builtin.yum_repository:
+    name: docker
+    description: docker repository
+    baseurl: "https://download.docker.com/linux/{{ mydistribution }}/$releasever/$basearch/stable"
+    enabled: true
+    gpgcheck: true
+    gpgkey: "https://download.docker.com/linux/{{ mydistribution }}/gpg"
+  when:  ansible_facts['os_family'] == 'RedHat'      
+
+# Install docker
+- name: Docker Install
+  package:
+    name:
+      - docker-ce
+      - docker-ce-cli
+      - containerd.io
+    state: latest
+    update_cache: true
+  notify: 
+    - Reload docker
+
+- name: Flush handlers
+  meta: flush_handlers
+
+- name: Add the current user to the docker group
+  user:
+    name: "{{ ansible_user }}"
+    groups: docker
+    append: yes

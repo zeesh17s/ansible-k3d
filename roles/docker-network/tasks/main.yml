@@ -1,0 +1,61 @@
+---
+- name: Delete network bridge if already exists
+  shell: "[ $(docker network ls -f Name={{ network_name }} -q) ] && docker network rm {{ network_name }} || exit 0"
+  register: net_rm
+  failed_when: net_rm.stderr != ""
+  changed_when: false
+
+- name: Create a network bridge with custom IPAM config
+  shell: 'docker network create -d macvlan -o parent={{ parentIF }}
+    --subnet={{ ipam_config.subnet }}
+    --gateway={{ ipam_config.gateway }}
+    --ip-range={{ ipam_config.iprange }}
+    --aux-address="hostcntr={{ ipam_config.hostcntr }}"
+    {{ network_name }}'
+  register: net_cr
+  failed_when:
+    - net_cr.stderr != ""
+    - net_cr.rc > 0
+  changed_when: false
+
+# for raspberry Pi OS
+- name: Updating dhcpcd on raspberry pi os
+  block:
+    - name: Add routes to communicate host with containers (debian)
+      template:
+        src: linksetup
+        dest: /etc/dhcpcd.exit-hook   #/lib/dhcpcd/dhcpcd-hooks/50-routecntr
+        owner: root
+        group: root
+        mode: 0644
+      when: ansible_distribution in ['Debian']
+
+    - name: Add bridge {{bridge}} details in dhcpcd.conf (debian)
+      blockinfile:
+        backup: true
+        path: /etc/dhcpcd.conf
+        content: |
+          interface {{bridge}}
+          static ip_address={{ ipam_config.iprange }}
+          static routers={{ ipam_config.gateway }}
+      when: ansible_distribution in ['Debian']
+      notify:
+        - Reload dhcpcd
+  rescue:
+    - ansible.builtin.debug:
+        msg: "Failed to update/run dhcpcd "
+
+# for AlmaLinux
+- name: Create bridge for host-container communication (AlmaLinux).. using nmcli
+  community.general.nmcli:
+    conn_name: docker-host-bridge
+    ifname: host-cntr
+    type: "macvlan"
+    ip4: "{{ ipam_config.iprange }}"
+    gw4: "{{ ipam_config.gateway }}"
+    macvlan:
+      mode: 2
+      parent: "{{ parentIF }}"
+    state: present
+    autoconnect: true
+  when: ansible_facts['os_family'] == 'RedHat'

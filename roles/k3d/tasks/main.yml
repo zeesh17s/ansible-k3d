@@ -1,0 +1,54 @@
+---
+
+- name: Git homeserver checkout
+  ansible.builtin.git:
+    repo: https://{{git_token}}@github.com/zeesh17s/homeserver.git
+    # dest: /home/{{ansible_user}}/homeserver
+    dest: $HOME/homeserver 
+
+- name: Update installed packages
+  ansible.builtin.dnf:
+    name: "*"
+    state: latest
+  become: true  
+  when: ansible_facts['os_family'] == 'RedHat'  
+
+- name: Download and Install k3d
+  shell: 
+     curl -s https://raw.githubusercontent.com/k3d-io/k3d/main/install.sh | bash
+  register: k3d_install
+  ignore_errors: true
+
+- debug: var=k3d_install
+
+- name: Install Kubectl for arm64
+  shell: |
+        curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/arm64/kubectl"
+        sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl        
+  register: kubectl_install
+  when: ansible_architecture == "aarch64"
+  
+- name: Install Kubectl for amd64
+  shell: |
+        curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+        sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl        
+  register: kubectl_install
+  when: ansible_architecture == "x86_64"
+
+
+
+- debug: var=kubectl_install
+
+- name: Remove kubectl install file from home
+  file:
+   path: $HOME/kubectl
+   state: absent
+
+# - name: Run k3d cluster setup
+#   shell: 
+#      k3d cluster create --config create-cluster.yml 
+#   args:
+#     chdir: $HOME/homeserver/k3d/
+#   register: k3d_exec
+
+# - debug: var=k3d_exec

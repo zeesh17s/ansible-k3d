@@ -1,0 +1,24 @@
+---
+
+- name: Setup Docker
+  hosts: servers
+  become: true
+  roles:
+    - bootstrap
+    - role: storage
+      vars:
+        uuid: <<device uuid to mount>>
+    - docker-network
+
+- name: Setup K3d
+  hosts: servers
+  roles:
+     - role: k3d
+       vars:
+         git_token: <<git_token>>
+
+- name: Reboot machine
+  hosts: servers
+  become: true
+  post_tasks:
+    - ansible.builtin.reboot:

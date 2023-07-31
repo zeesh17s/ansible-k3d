@@ -1,0 +1,45 @@
+---
+
+- name: Ubuntu/Debian apt update
+  ansible.builtin.apt:
+    update_cache: yes
+    upgrade: yes
+  when: ansible_distribution in ['Debian','Ubuntu']
+
+- name: Enable EPEL Repository on CentOS 8
+  ansible.builtin.dnf:
+      name: epel-release
+      state: latest
+  when: ansible_facts['os_family'] == 'RedHat'
+
+- name: AlmaLinux dnf update
+  ansible.builtin.dnf:
+    update_cache: true
+    state: latest
+  when: ansible_facts['os_family'] == 'RedHat'   
+
+
+- name: run update and install packages
+  package:
+    name: curl, vim, git, htop
+    update_cache: yes
+    state: present
+
+- name: set timezone
+  timezone:
+    name: Asia/Muscat
+
+- name: add user to Wheel group
+  ansible.builtin.user:
+    name: "{{ ansible_user }}"
+    groups: "wheel"
+    append: true
+  when: ansible_facts['os_family'] == 'RedHat'
+
+- name:  cgroup setup for pi
+  lineinfile:
+    path: /boot/cmdline.txt
+    regexp: '^((?!.*\bcgroup_enable=cpuset cgroup_memory=1 cgroup_enable=memory\b).*)$'
+    line: '\1 cgroup_enable=cpuset cgroup_memory=1 cgroup_enable=memory'
+    backrefs: true
+  ignore_errors: true

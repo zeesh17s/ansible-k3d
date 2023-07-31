@@ -1,0 +1,42 @@
+---
+- name: create pihole data storage directory
+  file:
+    path: /var/pods/data/pihole
+    state: directory
+    mode: 0777
+
+- name: External storage setup
+  block:
+    - name: create external storage directory
+      file:
+        path: /var/external
+        state: directory
+        mode: 0755
+
+    - name: Create systemd mount unit file
+      copy:
+        dest: /etc/systemd/system/var-external.mount
+        content: |
+          [Unit]
+          Description=External storage device to mount
+          Requires=network-online.target
+          [Mount]
+          What=/dev/disk/by-uuid/{{uuid}}
+          Where=/var/external
+          Type=ext4
+          Options=defaults
+          [Install]
+          WantedBy=multi-user.target
+      notify:
+        - Reload systemd-daemon
+
+    - name: Enable external mount
+      ansible.builtin.systemd:
+        name: var-external.mount
+        state: started
+        enabled: true
+
+  rescue:
+    - name: Error while creating external data storage
+      ansible.builtin.debug:
+        msg: "Check Error logs. "

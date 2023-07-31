@@ -1,0 +1,4 @@
+ip link add host-cntr link {{ parentIF }} type macvlan mode bridge 
+ip addr add {{ ipam_config.iprange }} dev host-cntr
+ip l set host-cntr up
+ip route add {{ ipam_config.iprange }} dev host-cntr
